@@ -2,3 +2,4 @@ data/
 notPepe/
 synthetic-pepe/
 **/__pycache__/
+**.pth
