@@ -1,7 +1,10 @@
 import torch
 from torchvision import datasets, transforms
 from torch import nn, optim
-import torch.nn.functional as F
+from sys import argv
+
+shouldVal = False
+if "val" in argv: shouldVal=True
 
 dataTransform = transforms.Compose([
     #data.py resizes all the images
@@ -33,11 +36,11 @@ class Network(nn.Module):
             nn.Dropout(),
             nn.BatchNorm1d(256 * 6 * 6),
             nn.Linear(256 * 6 * 6, 4096),
-            nn.BatchNorm1d(4096),
+            #nn.BatchNorm1d(4096),
             nn.ReLU(inplace=True),
             nn.Dropout(),
             nn.Linear(4096, 1024),
-            nn.BatchNorm1d(1024),
+            #nn.BatchNorm1d(1024),
             nn.ReLU(inplace=True),
             nn.Linear(1024, 1),
             nn.Sigmoid(),
@@ -52,37 +55,61 @@ class Network(nn.Module):
     
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Device:", device)
+DELTA = 1e-6
 
-trainBatchSize = 32
+trainBatchSize = 16
 testBatchSize = 20
 valBatchSize = 20
 
 trainDataset = datasets.ImageFolder(root="data/train/", transform=dataTransform)
 trainDataloader = torch.utils.data.DataLoader(trainDataset, batch_size=trainBatchSize, shuffle=True)
-valDataset = datasets.ImageFolder(root="data/val/", transform=dataTransform)
-valDataloader = torch.utils.data.DataLoader(valDataset, batch_size=valBatchSize, shuffle=True)
 testDataset = datasets.ImageFolder(root="data/test/", transform=dataTransform)
 testDataloader = torch.utils.data.DataLoader(testDataset, batch_size=testBatchSize, shuffle=True)
+if(shouldVal):
+    valDataset = datasets.ImageFolder(root="data/val/", transform=dataTransform)
+    valDataloader = torch.utils.data.DataLoader(valDataset, batch_size=valBatchSize, shuffle=True)
 
+def calcAccPrecRecf1(outputs, labels, batchSize):
+    truePositive = (outputs > 0.5) & (labels == 1)
+    trueNegative = (outputs < 0.5) & (labels == 0)
+    falseNegative = (outputs < 0.5) & (labels == 1)
+    falsePositive = (outputs > 0.5) & (labels == 0)
+
+    #adding DELTA to avoid div by 0 error
+    prec = torch.sum(truePositive).item()/(torch.sum(truePositive | falsePositive).item() + DELTA)
+    rec = torch.sum(truePositive).item()/(torch.sum(truePositive | falseNegative).item() + DELTA)
+    acc = torch.sum(truePositive | trueNegative).item()/batchSize
+    f1 = (2 * prec * rec)/(prec + rec + DELTA)
+    return acc, prec, rec, f1
 def testModel(model, dataloader, batchSize, phase):
-    criterion = nn.BCELoss()
-    loss = 0
-    correctPreds = 0
-    for images, labels in dataloader:
-        images = images.to(device)
-        labels = labels.to(device)
-        labels = labels.reshape((batchSize, 1)).to(torch.float32)
+    with torch.no_grad():
+        criterion = nn.BCELoss()
+        loss = 0
+        acc = 0
+        prec = 0
+        rec = 0
+        f1 = 0
+        for images, labels in dataloader:
+            images = images.to(device)
+            labels = labels.to(device)
+            labels = labels.reshape((batchSize, 1)).to(torch.float32)
 
-        outputs = model(images)
-        loss += criterion(outputs, labels).item()
-        mask1 = (outputs > 0.5) & (labels == 1)
-        mask2 = (outputs < 0.5) & (labels == 0)
-        correctPreds += torch.sum(mask1 | mask2).item()
-    loss = loss/len(dataloader.dataset)
-    accuracy = correctPreds/len(dataloader.dataset)
-    print(f"{phase} Loss: {loss}")
-    print(f"{phase} Accuracy: {accuracy}")
-    return loss, accuracy
+            outputs = model(images)
+            loss += criterion(outputs, labels).item()
+            a,p,r,f = calcAccPrecRecf1(outputs, labels, batchSize)
+            acc += a
+            prec += p
+            rec += r
+            f1 += f
+        count = len(dataloader.dataset)/batchSize
+        loss = loss/count
+        accuracy = acc/count
+        print(f"{phase} Loss: {loss}")
+        print(f"{phase} Accuracy: {accuracy}")
+        print(f"{phase} Precision: {prec/count}")
+        print(f"{phase} Recall: {rec/count}")
+        print(f"{phase} F1: {f1/count}")
+        return loss, accuracy
 def trainModel():
     model = Network()
     model.to(device)
@@ -90,13 +117,16 @@ def trainModel():
     criterion = nn.BCELoss()
     optimizer = optim.SGD(model.parameters(), lr=0.001, weight_decay = 0.07, momentum = 0.1)
 
-    runningLoss  = 0
-    correctPreds = 0
     trainLosses = []
     trainAccuracies = []
     valLosses = []
     valAccuracies = []
     for epoch in range(35):
+        acc = 0
+        rec = 0
+        prec = 0
+        f1 = 0
+        runningLoss  = 0
         for images, labels in trainDataloader:
             images = images.to(device)
             labels = labels.to(device)
@@ -107,26 +137,32 @@ def trainModel():
             labels = labels.reshape((trainBatchSize, 1)).to(torch.float32)
             loss = criterion(outputs, labels)
 
-            mask1 = (outputs > 0.5) & (labels == 1)
-            mask2 = (outputs < 0.5) & (labels == 0)
-            correctPreds += torch.sum(mask1 | mask2).item()
-            
+            a,p,r,f = calcAccPrecRecf1(outputs, labels, trainBatchSize)
+            acc += a
+            prec += p
+            rec += r
+            f1 += f
+
             print(f"Epoch: {epoch}", loss.item())
             runningLoss += loss.item()
                     
             loss.backward()
             optimizer.step()
-        runningLoss = runningLoss/len(trainDataloader.dataset)
-        accuracy = correctPreds/len(trainDataloader.dataset)
+        count = len(trainDataloader.dataset)/trainBatchSize
+        runningLoss = runningLoss/count
+        accuracy = acc/count
         print("Loss:", runningLoss)
         print("Accuracy:", accuracy)
+        print("Precision:", prec/count)
+        print("Recall:", rec/count)
+        print("F1:", f1/count)
         trainLosses.append(runningLoss)
         trainAccuracies.append(accuracy)
-        runningLoss = 0
-        correctPreds = 0
-        valAccuracy, valLoss = testModel(model, valDataloader, valBatchSize, "Val")
-        valAccuracies.append(valAccuracy)
-        valLosses.append(valLoss)
+        if(shouldVal):
+            valAccuracy, valLoss = testModel(model, valDataloader, valBatchSize, "Val")
+            valAccuracies.append(valAccuracy)
+            valLosses.append(valLoss)
+        torch.cuda.empty_cache()
 
     torch.save(model.state_dict(), "modelAlex.pth")
     return model, trainLosses, trainAccuracies, valLosses, valAccuracies
@@ -150,6 +186,7 @@ def plotModel(trainLosses, trainAccuracies, testLosses, testAccuracies):
     ax4.title.set_text("accuracy VS epoch: Validation")
     plt.show()
 
-model, trLosses, trAccuracies, teLosses, teAccuracies = trainModel()
+model, trLosses, trAccuracies, vLosses, vAccuracies = trainModel()
+print("-" * 75)
 testModel(model, testDataloader, testBatchSize, "Test")
-plotModel(trLosses, trAccuracies, teLosses, teAccuracies)
+plotModel(trLosses, trAccuracies, vLosses, vAccuracies)
