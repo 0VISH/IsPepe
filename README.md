@@ -46,4 +46,7 @@ The testing and training accuracy did not have a high difference, therefore the 
 * Normalized images with `mean = [0.485, 0.456, 0.406]` and `std = [0.229, 0.224, 0.225]`. This reduced the accuracy and made the accuracy graph more noisy.
 * Vertical random flips > Horizontal random flips. Increased overall accuracy.
 
+## Model
+You can find the model <a href="https://huggingface.co/Gr1mes/IsPepe">here</a>
+
 ![pepe](images/smort.png)
