@@ -18,7 +18,7 @@ By passing `val` as an argument, the model will validate itself after every epoc
 The model is inspired by <a href="https://en.wikipedia.org/wiki/AlexNet">AlexNet</a>. I added batch normalization after every linear layer in the classifier part of the model. That produced this graph:
 ![graph produced by batch normalization](images/WithBatchNormalization.png)
 
-As you can see the validation graph is very noisy. This often in happens in deep learning models due to batch learning. I removed all batch normalization layer from the model except the one in between the feature and classifier part of the model. If I removed this, the model just wouldn't learn(loss was stuck at 0.69). Now the graph looks like this
+As you can see the validation graph is very noisy. I found out that this often happens in deep learning models due to batch learning. I removed all batch normalization layer from the model except the one in between the feature and classifier part of the model. If I removed this, the model just wouldn't learn(loss was stuck at 0.69). Now the graph looks like this
 ![graph produced by 1 batch normalization](images/RemovingLast2BatchNorm.png)
 
 ## Hyperparameters
@@ -32,9 +32,11 @@ epochs = 35
 This part was brute forced with the help of cuda. While training, cuda once complained about being out of memory. I had to reduce `batch_size`, and using functions such as `torch.cuda.empty_cache()` after every epoch, and `torch.no_grad()` while validating and testing my model, to reduce my model's memory usage.
 
 ## Training process
-`test/`, `train/`, and `val/` each contain 2 directories: `pepe/` and `notPepe/`. Pytorch loads the images under these directories and passes them to a transformer which processes these images before feeding it into the network. The transformer may randomly flip an image vertically. This lets the model genralize more, and prevents overfitting.
+`test/`, `train/`, and `val/` each contain 2 directories: `pepe/` and `notPepe/`. Pytorch loads the images under these directories and passes them to a transformer which processes these images before feeding it into the network. The transformer may randomly flip an image vertically(data augmentation). This lets the model genralize more, and prevents overfitting.
 
-I chose the loss function to be Binary Cross Entropy(BCELoss), which is a good loss function for binary classification tasks.  The optimizer chosen is Stochastic Gradient Descent, along with Adam and L2 regularization.
+I added a lot of frog pictures along with human faces under `notPepe/` in order to force my model to learn that pepe is a combination of both.
+
+I chose Binary Cross Entropy(BCELoss) as the loss function, as it is a good loss function for binary classification tasks.  The optimizer chosen is Stochastic Gradient Descent, along with Adam and L2 regularization.
 
 ## Results
 The testing and training accuracy did not have a high difference, therefore the model fit the data very well without over or under fitting. Testing Accuracy, Precision, Recall and F1 scores were all above 90% supporting my initial claim.

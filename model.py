@@ -6,6 +6,7 @@ from sys import argv
 shouldVal = False
 if "val" in argv: shouldVal=True
 
+#data augmentation
 dataTransform = transforms.Compose([
     #data.py resizes all the images
     #transforms.Resize((224, 224)),
