@@ -9,7 +9,8 @@ if "val" in argv: shouldVal=True
 dataTransform = transforms.Compose([
     #data.py resizes all the images
     #transforms.Resize((224, 224)),
-    transforms.RandomHorizontalFlip(),
+    #transforms.RandomHorizontalFlip(),
+    transforms.RandomVerticalFlip(),
     transforms.ToTensor(),
 ])
 
@@ -159,12 +160,12 @@ def trainModel():
         trainLosses.append(runningLoss)
         trainAccuracies.append(accuracy)
         if(shouldVal):
-            valAccuracy, valLoss = testModel(model, valDataloader, valBatchSize, "Val")
+            valLoss, valAccuracy = testModel(model, valDataloader, valBatchSize, "Val")
             valAccuracies.append(valAccuracy)
             valLosses.append(valLoss)
         torch.cuda.empty_cache()
 
-    torch.save(model.state_dict(), "modelAlex.pth")
+    torch.save(model.state_dict(), "model.pth")
     return model, trainLosses, trainAccuracies, valLosses, valAccuracies
 
 def plotModel(trainLosses, trainAccuracies, testLosses, testAccuracies):
