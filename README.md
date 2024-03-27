@@ -47,6 +47,6 @@ The testing and training accuracy did not have a high difference, therefore the 
 * Vertical random flips > Horizontal random flips. Increased overall accuracy.
 
 ## Model
-You can find the model <a href="https://huggingface.co/Gr1mes/IsPepe">here</a>
+You can find the model <a href="https://huggingface.co/0VISH/IsPepe">here</a>
 
 ![pepe](images/smort.png)
