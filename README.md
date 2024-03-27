@@ -18,7 +18,7 @@ By passing `val` as an argument, the model will validate itself after every epoc
 The model is inspired by <a href="https://en.wikipedia.org/wiki/AlexNet">AlexNet</a>. I added batch normalization after every linear layer in the classifier part of the model. That produced this graph:
 ![graph produced by batch normalization](images/WithBatchNormalization.png)
 
-As you can see the validation graph is very noisy. I found out that this often happens in deep learning models due to batch learning. I removed all batch normalization layer from the model except the one in between the feature and classifier part of the model. If I removed this, the model just wouldn't learn(loss was stuck at 0.69). Now the graph looks like this
+As you can see the validation graph is very noisy. I found out that this often happens in deep learning models due to batch normalization. I removed all batch normalization layers from the model except the one in between the feature and classifier part of the model. If I removed this, the model just wouldn't learn(loss was stuck at 0.69). Now the graph looks like this
 ![graph produced by 1 batch normalization](images/RemovingLast2BatchNorm.png)
 
 ## Hyperparameters
